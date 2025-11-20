@@ -20,18 +20,15 @@ exports.createParticipant = async (req, res) => {
   } catch (err) {
     if (err && err.code === 'ER_DUP_ENTRY') {
       try {
-        // Idempotent behaviour for same UID + type: if a participant with the same
-        // UID already exists and has the same type, treat this as success instead
-        // of an error. This allows safe re-import of the same CSV.
+        // Idempotent behaviour: if a participant with the same UID already exists,
+        // always treat this as success instead of an error. This allows safe
+        // re-import of the same CSV and ignores duplicate UID conflicts.
         const existing = await Participants.getByUID(String(req.body?.uid || ''));
         if (existing) {
-          const existingType = Number(existing.type);
-          const requestedType = Number(req.body?.type);
-          if (existingType === requestedType) {
-            const data = { id: existing.id, uid: existing.uid, type: existing.type, qr_code: existing.qr_code };
-            return res.status(200).json({ status: 'success', data, note: 'Already existed' });
-          }
+          const data = { id: existing.id, uid: existing.uid, type: existing.type, qr_code: existing.qr_code };
+          return res.status(200).json({ status: 'success', data, note: 'Already existed' });
         }
+        // Fallback: if for some reason we cannot find the row, still report generic error
         return res.status(409).json({ error: 'UID already exists' });
       } catch (lookupErr) {
         console.error('createParticipant ER_DUP_ENTRY lookup error:', lookupErr);
