@@ -19,7 +19,24 @@ exports.createParticipant = async (req, res) => {
     res.status(201).json({ status: 'success', data });
   } catch (err) {
     if (err && err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'UID already exists' });
+      try {
+        // Idempotent behaviour for same UID + type: if a participant with the same
+        // UID already exists and has the same type, treat this as success instead
+        // of an error. This allows safe re-import of the same CSV.
+        const existing = await Participants.getByUID(String(req.body?.uid || ''));
+        if (existing) {
+          const existingType = Number(existing.type);
+          const requestedType = Number(req.body?.type);
+          if (existingType === requestedType) {
+            const data = { id: existing.id, uid: existing.uid, type: existing.type, qr_code: existing.qr_code };
+            return res.status(200).json({ status: 'success', data, note: 'Already existed' });
+          }
+        }
+        return res.status(409).json({ error: 'UID already exists' });
+      } catch (lookupErr) {
+        console.error('createParticipant ER_DUP_ENTRY lookup error:', lookupErr);
+        return res.status(409).json({ error: 'UID already exists' });
+      }
     }
     console.error('createParticipant error:', err);
     res.status(500).json({ error: 'Internal server error' });
