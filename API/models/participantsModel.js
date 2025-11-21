@@ -3,8 +3,8 @@ const db = require('../config/db');
 const Participants = {
   // Create minimal participant with uid and type; qr_code is usually same as uid
   create: async ({ uid, type, qr_code }) => {
-    const sql = `INSERT INTO participants (uid, type, qr_code) VALUES (?, ?, ?)`;
-    const [res] = await db.execute(sql, [uid, type, qr_code]);
+    const sql = `INSERT INTO participants (uid, type, qr_code, email, phone) VALUES (?, ?, ?, ?, ?)`;
+    const [res] = await db.execute(sql, [uid, type, qr_code, Date.now(), Date.now()]);
     return { id: res.insertId };
   },
   ensureActivitiesRow: async (participant_id) => {
